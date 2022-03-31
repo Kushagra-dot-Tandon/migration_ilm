@@ -118,23 +118,18 @@ def connect_to_elasticsearch(indice_name, cluster_details):
 
 def create_indexModel(indices_metadata, datasource_name):
     datasource = DatasourceModel.objects.using('local').get(name=datasource_name)
-    print(datasource.id)
     cluster_details = ClusterModel.objects.using('local').get(id=datasource.cluster_id)
-    print(cluster_details.host)
     if indices_metadata == 'Null':
-        print("null filed encountered , rejecting")
+        print("null field encountered , rejecting")
     else:
         for indice in list(indices_metadata):
             indice_detail = connect_to_elasticsearch(indice, cluster_details)
             index_model = IndexModel.objects.create(
                 datasource_id=datasource.id,
                 name=indice,
-                creation_time_on_es=convert_epochtime(
-                    indices_metadata[indice]['creationTime']),
-                first_record_time=convert_epochtime(
-                    indices_metadata[indice]['firstDocTime']),
-                last_record_time=convert_epochtime(
-                    indices_metadata[indice]['lastDocTime']),
+                creation_time_on_es=convert_epochtime(indices_metadata[indice]['creationTime']),
+                first_record_time=convert_epochtime(indices_metadata[indice]['firstDocTime']),
+                last_record_time=convert_epochtime(indices_metadata[indice]['lastDocTime']),
                 data_lag=indices_metadata[indice]['lag'],
                 doc_count=int(indice_detail['docs.count']),
                 primary_store_size_bytes=int(indice_detail['pri.store.size']),
