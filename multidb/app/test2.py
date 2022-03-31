@@ -1,5 +1,7 @@
 from .models import *
 import requests
+import time
+from datetime import datetime
 from requests.auth import HTTPBasicAuth
 # from elasticsearch_manager.cluster_ops import ClusterOperations
 # from elasticsearch_manager.possible_state_transitions import get_possible_state_transitions
@@ -96,7 +98,7 @@ def migrate_datasource_to_elasticsearch_datasource():
 
 def convert_epochtime(epoch_timestamp):
     timestamp = int(epoch_timestamp) / 1000.0
-    return (datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f'))[:-3]
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def create_elasticsearch_url(cluster_details):
@@ -114,6 +116,24 @@ def connect_to_elasticsearch(indice_name, cluster_details):
         return {'lag': False, 'docs.count': 0, 'pri.store.size': 0, 'store.size': 0}
 
 
+def generate_write_phase_details(indices_metadata):
+    fmt = '%Y-%m-%d %H:%M:%S'
+    indices_creation_time = []
+    indices_write_phase_details = {}
+    for index_name in list(indices_metadata):
+        indices_creation_time.append(convert_epochtime(indices_metadata[index_name]['creationTime']))
+    for i in range(len(indices_creation_time)):
+        if i < len(indices_creation_time)-1:
+            td = datetime.strptime(indices_creation_time[i+1],fmt) - datetime.strptime(indices_creation_time[i],fmt)
+            data = {list(indices_metadata)[i]: {"diff_sec": int(round(td.total_seconds()))}}
+        else:
+            current_time = convert_epochtime(int(time.time() * 1000)) 
+            td = datetime.strptime(current_time,fmt) - datetime.strptime(indices_creation_time[i],fmt)
+            data = {list(indices_metadata)[i]: {"diff_sec": int(round(td.total_seconds()))}}
+        indices_write_phase_details.update(data)
+    return indices_write_phase_details
+
+
 def create_indexModel(indices_metadata, datasource_name):
     datasource = DatasourceModel.objects.using('local').get(name=datasource_name)
     cluster_details = ClusterModel.objects.using('local').get(id=datasource.cluster_id)
@@ -122,6 +142,7 @@ def create_indexModel(indices_metadata, datasource_name):
     else:
         for indice in list(indices_metadata):
             indice_detail = connect_to_elasticsearch(indice, cluster_details)
+            write_phase_details = generate_write_phase_details(indices_metadata)
             index_model = IndexModel.objects.create(
                 datasource_id=datasource.id,
                 name=indice,
@@ -131,7 +152,8 @@ def create_indexModel(indices_metadata, datasource_name):
                 data_lag=indices_metadata[indice]['lag'],
                 doc_count=int(indice_detail['docs.count']),
                 primary_store_size_bytes=int(indice_detail['pri.store.size']),
-                store_size_bytes=int(indice_detail['store.size'])
+                store_size_bytes=int(indice_detail['store.size']),
+                write_phase_in_seconds = write_phase_details[indice]['diff_sec']
             )
             index_model.save(using='local')
 
