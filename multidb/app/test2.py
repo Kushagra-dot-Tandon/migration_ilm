@@ -1,7 +1,8 @@
-# from elasticsearch_manager.cluster_ops import ClusterOperations
-# from elasticsearch_manager.possible_state_transitions import get_possible_state_transitions
 from .models import *
 import requests
+from requests.auth import HTTPBasicAuth
+# from elasticsearch_manager.cluster_ops import ClusterOperations
+# from elasticsearch_manager.possible_state_transitions import get_possible_state_transitions
 
 def migrate_escluster_to_elasticsearch_cluster():
     esClusters = ESCluster.objects.all().using('snappyflow')
@@ -137,7 +138,7 @@ def create_indexModel(indices_metadata, datasource_name):
             )
             index_model.save(using='local')
 
-
+# Function to Create IndexModel
 def migrate_indexModel():
     datasources = Datasource.objects.all().using('snappyflow')
     for datasource in datasources:
@@ -149,9 +150,8 @@ def migrate_indexModel():
 
 migrate_indexModel()
 
-from requests.auth import HTTPBasicAuth
 
-
+# Function to call elasticsearch
 def call_elasticsearch(url, cluster_details):
     response = requests.request("GET", url, auth=HTTPBasicAuth(cluster_details.username, cluster_details.password))
     return response
@@ -184,7 +184,7 @@ def check_index_smw_state(index_name: str, ElasticSearch_URL, cluster_details) -
         print('Error in checking if particular index %s is merged , shrinked or warm', index_name)
         raise Exception
 
-
+# Function to check Index Aliases States
 def check_index_aliases_state(index_name: str, ElasticSearch_URL, cluster_details) -> IndexConstants.States:
     url = ElasticSearch_URL + index_name
     response = call_elasticsearch(url, cluster_details)
@@ -224,7 +224,7 @@ def check_index_allocation_state(index_name: str, elasticsearch_info) -> IndexCo
         print('Error in checking index_state %s response_body %s', index_name)
         return IndexConstants.States.DELETED, {"Error_Encountered": 'Index_Not_Found'}
 
-
+# Function to create IndexLifecycleModel 
 def migrate_index_lifecycle_model():
     index_models = IndexModel.objects.all().using('local')
     for index_model in index_models:
