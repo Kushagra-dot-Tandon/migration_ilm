@@ -91,9 +91,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'snappyflow',
         'USER': 'postgres',
-        'PASSWORD': 'postgres123$',
-        'HOST': 'snappyflow-stage-rds.cmebsmm3knzu.us-west-2.rds.amazonaws.com',
-        'PORT': '5432',
+        'PASSWORD': '',
+        'HOST': '',
+        'PORT': '',
     }
 }
 
