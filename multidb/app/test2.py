@@ -133,7 +133,7 @@ def create_indexModel(indices_metadata, datasource_name):
                 data_lag=indices_metadata[indice]['lag'],
                 doc_count=int(indice_detail['docs.count']),
                 primary_store_size_bytes=int(indice_detail['pri.store.size']),
-                store_size_bytes=int(indice_detail['store.size']),
+                store_size_bytes=int(indice_detail['store.size'])
             )
             index_model.save(using='local')
 
