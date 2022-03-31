@@ -42,10 +42,10 @@ def migrate_escluster_to_elasticsearch_cluster():
                 }
             )
             clustermodel.save(using='local')
-        print("Migrations Completed")
+        print("Migration to escluster to elasticsearch_cluster completed successfully")
 
 
-migrate_escluster_to_elasticsearch_cluster()
+
 
 
 def generate_foregin_cluster_id(cluster_name):
@@ -91,10 +91,7 @@ def migrate_datasource_to_elasticsearch_datasource():
                 datasource.config['escluster_name']),
         )
         datasourceModel.save(using='local')
-    print('Migration Successfull')
-
-
-migrate_datasource_to_elasticsearch_datasource()
+    print('Migration of datasource to elasticsearch_datasource completed successfull')
 
 
 def convert_epochtime(epoch_timestamp):
@@ -146,9 +143,9 @@ def migrate_indexModel():
             create_indexModel('Null', datasource.datasource_name)
         else:
             create_indexModel(datasource.indices_metadata, datasource.datasource_name)
+    print("Creation of indexModel done successfully")
 
 
-migrate_indexModel()
 
 
 # Function to call elasticsearch
@@ -243,4 +240,10 @@ def migrate_index_lifecycle_model():
             index_lifecycle_model.save(using='local')
 
 
-migrate_index_lifecycle_model()
+
+
+if __name__ == "__main__":
+    migrate_escluster_to_elasticsearch_cluster()
+    migrate_datasource_to_elasticsearch_datasource()
+    migrate_indexModel()
+    migrate_index_lifecycle_model()
