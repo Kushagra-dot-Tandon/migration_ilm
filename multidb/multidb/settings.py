@@ -73,26 +73,26 @@ WSGI_APPLICATION = 'multidb.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'postgres',
         'USER': 'postgres',
-        'PASSWORD': 'kush',
-        'HOST': '127.0.0.1',
+        'PASSWORD': 'maplelabs',
+        'HOST': 'locahost',
     },
     'local': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'kush',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'elasticsearch_manager',
+        'USER': 'snappyflow',
+        'PASSWORD': 'maplelabs',
+        'HOST': 'localhost',
+        'PORT': '',
     },
     'snappyflow': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'snappyflow',
-        'USER': 'postgres',
-        'PASSWORD': '',
-        'HOST': '',
+        'USER': 'snappyflow',
+        'PASSWORD': 'maplelabs',
+        'HOST': 'localhost',
         'PORT': '',
     }
 }
