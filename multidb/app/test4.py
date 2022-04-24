@@ -52,7 +52,7 @@ def generate_foreign_key(table_name, cluster_name):
         try:
             cursor.execute(query, (cluster_name,))
             cluster_model = cursor.fetchone()
-            return cluster_model[0]
+            return cluster_model
         except Exception as err:
             logging.error(f"Error in generating foreign key for table {table_name} , {cluster_name} with error {err}")
     else:
@@ -108,9 +108,13 @@ def migrate_datasource_to_elasticsearch_datasource():
         cluster_id = generate_foreign_key(table_name="elasticsearch_cluster",
                                           cluster_name=datasource[4]['escluster_name'])
 
-        insert_query = "INSERT INTO elasticsearch_datasource (name,type,parent_type,parent_id," \
-                       "shard_count_template,cluster_id) VALUES (%s,%s,%s,%s,%s,%s,%s);"
-        values = (datasource[1], datasource_type, parent_type, parent_id, shard_count_template, cluster_id)
+        insert_query = "INSERT INTO elasticsearch_datasource (create_timestamp,update_timestamp,name,type," \
+                       "parent_type,parent_id," \
+                       "shard_count_template,cluster_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s);"
+        values = (
+            datetime.now(), datetime.now(), datasource[1], datasource_type, parent_type, parent_id,
+            shard_count_template,
+            cluster_id[0])
 
         logging.info(f"SQL Command :- {insert_query} {values}")
         insert_data_into_db(insert_query, values)

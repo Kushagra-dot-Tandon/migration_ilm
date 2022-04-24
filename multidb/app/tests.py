@@ -161,7 +161,7 @@ def create_indexModel(indices_metadata, datasource_name):
 def migrate_indexModel():
     datasources = Datasource.objects.all().using('snappyflow')
     for datasource in datasources:
-        if datasource.indices_metadata == None:
+        if datasource.indices_metadata is None:
             create_indexModel('Null', datasource.datasource_name)
         else:
             create_indexModel(datasource.indices_metadata, datasource.datasource_name)
