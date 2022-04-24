@@ -18,11 +18,11 @@ def connect_to_db(database_name):
             database=database_name,
             user="snappyflow",
             password="maplelabs")
-        logging.info("Connection successful")
+        logging.info(f"Connection to database {database_name} is successful")
         return connection, error
     except Exception as err:
         error = True
-        logging.error("Connection failed {}".format(err))
+        logging.error(f"Unable to Connect to {database_name} database with error {err} ")
         return "", error
 
 
@@ -30,9 +30,12 @@ def get_details_from_db(query, database_name):
     connection, error = connect_to_db(database_name)
     cursor = connection.cursor()
     if not error:
-        cursor.execute(query)
-        es_clusters = cursor.fetchall()
-        return es_clusters
+        try:
+            cursor.execute(query)
+            es_clusters = cursor.fetchall()
+            return es_clusters
+        except Exception as err:
+            logging.error(f"Error in getting details from {database_name} with query {query} with error {err}")
     else:
         sys.exit(1)
 
@@ -44,11 +47,13 @@ def generate_foreign_key(table_name, cluster_name):
     cursor = connection.cursor()
     if not error:
         query = f"Select * from {table_name} where name like %s"
-        cursor.execute(query, (cluster_name,))
-        cluster_model = cursor.fetchone()
-        return cluster_model[0]
+        try:
+            cursor.execute(query, (cluster_name,))
+            cluster_model = cursor.fetchone()
+            return cluster_model[0]
+        except Exception as err:
+            logging.error(f"Error in generating foreign key for table {table_name} , {cluster_name} with error {err}")
     else:
-        logging.error(f"Error in getting id for {cluster_name} inside table {table_name}")
         sys.exit(1)
 
 
@@ -106,6 +111,7 @@ def migrate_datasource_to_elasticsearch_datasource():
 
         logging.info(f"SQL Command :- {insert_query} with {values}")
         insert_data_into_db(insert_query, values)
+    logging.info("Migration of datasource to elasticseach_datasource completed successfully ")
 
 
 if __name__ == '__main__':
