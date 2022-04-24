@@ -17,9 +17,8 @@ def connect_to_db(database_name):
             database=database_name,
             user="snappyflow",
             password="maplelabs")
-        cursor = connection.cursor()
         logging.info("Connection successful")
-        return cursor, error
+        return connection, error
     except Exception as err:
         error = True
         logging.error("Connection failed {}".format(err))
@@ -27,7 +26,8 @@ def connect_to_db(database_name):
 
 
 def get_details_from_db(query, database_name):
-    cursor, error = connect_to_db(database_name)
+    connection, error = connect_to_db(database_name)
+    cursor = connection.cursor()
     if not error:
         cursor.execute(query)
         es_clusters = cursor.fetchall()
@@ -36,13 +36,18 @@ def get_details_from_db(query, database_name):
         sys.exit(1)
 
 
-def insert_details_to_db(query, database_name):
-    cursor, error = connect_to_db(database_name)
+# MIGRATION OF DATASOURCE TO ELASTICSEARCH DATASOURCE STARTS HERE ;
+
+def generate_foreign_key(table_name, cluster_name):
+    connection, error = connect_to_db(database_name="elasticsearch_manager")
+    cursor = connection.cursor()
     if not error:
-        cursor.execute(query)
-        cursor.commit()
-        cursor.close()
+        query = f"Select * from {table_name} where name like %s"
+        cursor.execute(query, (cluster_name,))
+        cluster_model = cursor.fetchone()
+        return cluster_model[0]
     else:
+        logging.error(f"Error in getting id for {cluster_name} inside table {table_name}")
         sys.exit(1)
 
 
@@ -71,17 +76,32 @@ def get_parent_details(cluster):
 def migrate_datasource_to_elasticsearch_datasource():
     datasources = get_details_from_db(query="select * from datasource", database_name="snappyflow")
     for datasource in datasources:
+        # populating the details to fill to elasticsearch_datasource database
+        connection, error = connect_to_db(database_name="elasticsearch_manager")
+        cursor = connection.cursor()
         parent_id, parent_type = get_parent_details(cluster=datasource)
-        dstype = datasource[4]['store_type']
-        cursor, error = connect_to_db(database_name="elasticsearch_datasource")
+        datasource_type = "control" if datasource[4]['store_type'] == 'metric' and parent_type == "profile" else \
+            datasource[4][
+                'store_type']
+        shard_count_template = {"primary_count": 3, "replica_count": 1}
+        cluster_id = generate_foreign_key(table_name="elasticsearch_cluster",
+                                          cluster_name=datasource[4]['escluster_name'])
         if not error:
-            cursor.execute(
-                "INSERT TO elasticsearch_datasource (name,type,parent_type,parent_id,shard_count_template,cluster_id) "
-                "VALUES (%s,%s,%s,%s,%s,%s)",
-                (datasource[1], "control" if dstype == 'metric' and parent_type == "profile" else dstype,
-                 parent_type, parent_id, {"primary_count": 3, "replica_count": 1}
-                 ,
-                 ))
+            insert_es_datasource_query = "INSERT INTO elasticsearch_datasource (name,type,parent_type,parent_id," \
+                                         f"shard_count_template,cluster_id)" \
+                                         f" VALUES ({datasource[1]},{datasource_type},{parent_type},{parent_id}," \
+                                         f"{shard_count_template},{cluster_id})"
+            logging.info(f"SQL Command :- {insert_es_datasource_query} ")
+
+            cursor.execute(""" INSERT INTO elasticsearch_datasource 
+                          (name,type,parent_type,parent_id,shard_count_template,cluster_id)"
+                          " VALUES (%s,%s,%s,%s,%s,%s) """,
+                           (datasource[1], datasource_type, parent_type, parent_id, shard_count_template, cluster_id))
+
+            connection.commit()
+            cursor.close()
+        else:
+            logging.error("Error in Executing Migration datasource to elasticsearch_datasource")
 
 
 if __name__ == '__main__':
