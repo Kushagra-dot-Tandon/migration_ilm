@@ -1,5 +1,7 @@
 import sys
 import logging
+from datetime import datetime
+
 import psycopg2
 import json
 
@@ -95,6 +97,7 @@ def insert_data_into_db(insert_query, values):
 
 def migrate_datasource_to_elasticsearch_datasource():
     datasources = get_details_from_db(query="select * from datasource", database_name="snappyflow")
+
     for datasource in datasources:
         # populating the details to fill to elasticsearch_datasource database
         parent_id, parent_type = get_parent_details(cluster=datasource)
@@ -106,12 +109,13 @@ def migrate_datasource_to_elasticsearch_datasource():
                                           cluster_name=datasource[4]['escluster_name'])
 
         insert_query = "INSERT INTO elasticsearch_datasource (name,type,parent_type,parent_id," \
-                       "shard_count_template,cluster_id) VALUES (%s,%s,%s,%s,%s,%s) "
+                       "shard_count_template,cluster_id) VALUES (%s,%s,%s,%s,%s,%s,%s);"
         values = (datasource[1], datasource_type, parent_type, parent_id, shard_count_template, cluster_id)
 
-        logging.info(f"SQL Command :- {insert_query} with {values}")
+        logging.info(f"SQL Command :- {insert_query} {values}")
         insert_data_into_db(insert_query, values)
-    logging.info("Migration of datasource to elasticseach_datasource completed successfully ")
+
+    logging.info("Migration of datasource to elasticsearch_datasource completed successfully ")
 
 
 if __name__ == '__main__':
