@@ -58,6 +58,20 @@ def generate_foreign_key(table_name, cluster_name):
         sys.exit(1)
 
 
+def insert_data_into_db(insert_query, values):
+    connection, error = connect_to_db(database_name="elasticsearch_manager")
+    if not error:
+        cursor = connection.cursor()
+        try:
+            cursor.execute(insert_query, values)
+            connection.commit()
+            cursor.close()
+        except Exception as err:
+            logging.error(f"Error while executing query error - {err}")
+    else:
+        sys.exit(1)
+
+
 # MIGRATION OF ELASTICSEARCH INDEX
 
 def epochtime_to_datetime(epoch_timestamp):
@@ -73,10 +87,12 @@ def create_elasticsearch_url(cluster_details):
 def connect_to_elasticsearch(es_index_name, cluster_details):
     es_query = '?h=index,creation.date,docs.count,pri.store.size,store.size&format=json&pretty&bytes=b'
     url = create_elasticsearch_url(cluster_details) + '_cat/indices/' + es_index_name + es_query
+    print(cluster_details[8],cluster_details[9])
     response = requests.request("GET", url, auth=HTTPBasicAuth(cluster_details[8], cluster_details[9]))
     if response.ok:
         return response.json()[0]
     else:
+        logging.error(f'Failed to connect to server {url} reason {response.text}')
         return {'lag': False, 'docs.count': 0, 'pri.store.size': 0, 'store.size': 0}
 
 
@@ -109,18 +125,20 @@ def populate_index_model(index_metadata, datasource_name):
             index_details = connect_to_elasticsearch(es_index, cluster_details)
             write_phase_details = generate_write_phase_details(index_metadata)
 
-            insert_query = "INSERT INTO elasticsearch_index (datasource_id,name,creation_time_on_es," \
-                           "first_record_time,last_record_time,data_lag,doc_count,primary_store_size_bytes," \
-                           "store_size_bytes,write_phase_in_seconds) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+            insert_query = "INSERT INTO elasticsearch_index (create_timestamp,update_timestamp,datasource_id,name," \
+                           "creation_time_on_es,first_record_time,last_record_time,data_lag,doc_count," \
+                           "primary_store_size_bytes,store_size_bytes,write_phase_in_seconds) VALUES (%s,%s,%s,%s,%s," \
+                           "%s,%s,%s,%s,%s,%s,%s) "
 
-            values = (datasource[0], es_index, epochtime_to_datetime(index_metadata[es_index]['creationTime']),
+            values = (datetime.now(), datetime.now(), datasource[0], es_index,
+                      epochtime_to_datetime(index_metadata[es_index]['creationTime']),
                       epochtime_to_datetime(index_metadata[es_index]['firstDocTime']),
-                      index_metadata[es_index]['lastDocTime'], index_metadata[es_index]['lag'],
+                      epochtime_to_datetime(index_metadata[es_index]['lastDocTime']), index_metadata[es_index]['lag'],
                       int(index_details['docs.count']), int(index_details['pri.store.size']),
                       int(index_details['store.size']), write_phase_details[es_index]['diff_sec'])
 
             logging.info(f"SQL Command :- {insert_query} {values}")
-            # insert_data_into_db(insert_query, values)
+            insert_data_into_db(insert_query, values)
 
 
 def create_index_model():

@@ -23,7 +23,7 @@ def connect_to_db(database_name):
             database=database_name,
             user="snappyflow",
             password="maplelabs")
-        logging.info(f"Connection to database {database_name} is successful")
+        logging.debug(f"Connection to database {database_name} is successful")
         return connection, error
     except Exception as err:
         error = True
@@ -169,6 +169,7 @@ def connect_to_elasticsearch(es_index_name, cluster_details):
     if response.ok:
         return response.json()[0]
     else:
+        logging.error(f'Failed to connect to server {url} reason {response.text}')
         return {'lag': False, 'docs.count': 0, 'pri.store.size': 0, 'store.size': 0}
 
 
@@ -201,18 +202,20 @@ def populate_index_model(index_metadata, datasource_name):
             index_details = connect_to_elasticsearch(es_index, cluster_details)
             write_phase_details = generate_write_phase_details(index_metadata)
 
-            insert_query = "INSERT INTO elasticsearch_index (datasource_id,name,creation_time_on_es," \
-                           "first_record_time,last_record_time,data_lag,doc_count,primary_store_size_bytes," \
-                           "store_size_bytes,write_phase_in_seconds) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+            insert_query = "INSERT INTO elasticsearch_index (create_timestamp,update_timestamp,datasource_id,name," \
+                           "creation_time_on_es,first_record_time,last_record_time,data_lag,doc_count," \
+                           "primary_store_size_bytes,store_size_bytes,write_phase_in_seconds) VALUES (%s,%s,%s,%s,%s," \
+                           "%s,%s,%s,%s,%s,%s,%s) "
 
-            values = (datasource[0], es_index, epochtime_to_datetime(index_metadata[es_index]['creationTime']),
+            values = (datetime.now(), datetime.now(), datasource[0], es_index,
+                      epochtime_to_datetime(index_metadata[es_index]['creationTime']),
                       epochtime_to_datetime(index_metadata[es_index]['firstDocTime']),
-                      index_metadata[es_index]['lastDocTime'], index_metadata[es_index]['lag'],
+                      epochtime_to_datetime(index_metadata[es_index]['lastDocTime']), index_metadata[es_index]['lag'],
                       int(index_details['docs.count']), int(index_details['pri.store.size']),
                       int(index_details['store.size']), write_phase_details[es_index]['diff_sec'])
 
             logging.info(f"SQL Command :- {insert_query} {values}")
-            # insert_data_into_db(insert_query, values)
+            insert_data_into_db(insert_query, values)
 
 
 def create_index_model():
@@ -230,5 +233,5 @@ if __name__ == '__main__':
         logging.error('specify the URL , Auth_Token and OperatingMode')
     else:
         # migrate_escluster_to_elasticsearch_cluster(sys.argv[1], sys.argv[2], sys.argv[3])
-        migrate_datasource_to_elasticsearch_datasource()
+        #migrate_datasource_to_elasticsearch_datasource()
         create_index_model()
