@@ -1,6 +1,7 @@
 import sys
 import logging
 import psycopg2
+import json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,35 +74,36 @@ def get_parent_details(cluster):
         return parent_id, "account"
 
 
+def insert_data_into_db(insert_query, values):
+    connection, error = connect_to_db(database_name="elasticsearch_manager")
+    if not error:
+        cursor = connection.cursor()
+        try:
+            cursor.execute(insert_query, values)
+            connection.commit()
+            cursor.close()
+        except Exception as err:
+            logging.error(f"Error while executing query error - {err}")
+    else:
+        sys.exit(1)
+
+
 def migrate_datasource_to_elasticsearch_datasource():
     datasources = get_details_from_db(query="select * from datasource", database_name="snappyflow")
     for datasource in datasources:
         # populating the details to fill to elasticsearch_datasource database
-        connection, error = connect_to_db(database_name="elasticsearch_manager")
-        cursor = connection.cursor()
         parent_id, parent_type = get_parent_details(cluster=datasource)
         datasource_type = "control" if datasource[4]['store_type'] == 'metric' and parent_type == "profile" else \
             datasource[4][
                 'store_type']
-        shard_count_template = {"primary_count": 3, "replica_count": 1}
+        shard_count_template = json.dumps({"primary_count": 3, "replica_count": 1}, indent=3)
         cluster_id = generate_foreign_key(table_name="elasticsearch_cluster",
                                           cluster_name=datasource[4]['escluster_name'])
-        if not error:
-            insert_es_datasource_query = "INSERT INTO elasticsearch_datasource (name,type,parent_type,parent_id," \
-                                         f"shard_count_template,cluster_id)" \
-                                         f" VALUES ({datasource[1]},{datasource_type},{parent_type},{parent_id}," \
-                                         f"{shard_count_template},{cluster_id})"
-            logging.info(f"SQL Command :- {insert_es_datasource_query} ")
-
-            cursor.execute(""" INSERT INTO elasticsearch_datasource 
-                          (name,type,parent_type,parent_id,shard_count_template,cluster_id)"
-                          " VALUES (%s,%s,%s,%s,%s,%s) """,
-                           (datasource[1], datasource_type, parent_type, parent_id, shard_count_template, cluster_id))
-
-            connection.commit()
-            cursor.close()
-        else:
-            logging.error("Error in Executing Migration datasource to elasticsearch_datasource")
+        insert_query = "INSERT INTO elasticsearch_datasource (name,type,parent_type,parent_id," \
+                       "shard_count_template,cluster_id) VALUES (%s,%s,%s,%s,%s,%s) "
+        values = (datasource[1], datasource_type, parent_type, parent_id, shard_count_template, cluster_id)
+        logging.info(f"SQL Command :- {insert_query} with {values}")
+        insert_data_into_db(insert_query, values)
 
 
 if __name__ == '__main__':
