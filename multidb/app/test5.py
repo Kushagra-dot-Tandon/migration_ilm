@@ -2,6 +2,7 @@ import sys
 import logging
 import requests
 import psycopg2
+import json
 from datetime import datetime
 from requests.auth import HTTPBasicAuth
 
@@ -10,7 +11,6 @@ logging.basicConfig(
     format="{asctime} {levelname:<10} {message}",
     style='{')
 logging.getLogger(__name__)
-
 
 def connect_to_db(database_name):
     error = False
@@ -79,8 +79,6 @@ def check_index_smw_state(index_name: str, es_url, cluster_details):
         if len(response.json()) == 2:
             return "MERGED"
         elif check_shards_count(index_name, es_url) == 1:
-            # TODO: check the state of index => shrinking or done etc.
-            # check_shrinking_index_status(index_name)=> _cat/shards(2) => started
             return "SHRINKED"
         else:
             return "MOVED-TO-WARM"
@@ -95,7 +93,7 @@ def check_index_aliases_state(index_name: str, es_url, cluster_details):
     if response.ok:
         index_res = list(list(response.json().values())[0]['aliases'].keys())
         if len(index_res) == 2:
-            return "CREATED", {"op_complete": True}
+            return "CURRENT", {"op_complete": True}
         else:
             return "ROLLED-OVER", {"op_complete": True}
     else:
@@ -150,9 +148,12 @@ def create_index_lifecycle_model():
             insert_query = "INSERT INTO elasticsearch_index_lifecycle (create_timestamp,update_timestamp,index_id," \
                            "current_state,next_possible_states,state_level_metadata) VALUES (%s,%s,%s,%s,%s,%s)"
 
-            values = (datetime.now(), datetime.now(), index_model[0], current_state, "", state_level_metadata)
+            from possible_state_transitions import get_possible_state_transitions
+            next_possible_states = get_possible_state_transitions("hot", False, datasource[4])[current_state]
+            values = (datetime.now(), datetime.now(), index_model[0], current_state,
+                      next_possible_states, json.dumps(state_level_metadata,indent=3))
             logging.info(f"SQL Command :- {insert_query} {values}")
-            # insert_data_into_db(insert_query, values)
+            insert_data_into_db(insert_query, values)
 
 
 if __name__ == '__main__':
